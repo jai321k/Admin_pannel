@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Panel</title>
 
-  <!-- Firebase CDN (Compat – Easy) -->
+  <!-- Firebase CDN -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
@@ -30,6 +30,40 @@
       cursor:pointer;
     }
     .msg{margin-top:10px;color:lightgreen}
+
+    /* Delete Window */
+    .modal{
+      display:none;
+      position:fixed;
+      top:0;left:0;
+      width:100%;height:100%;
+      background:rgba(0,0,0,0.8);
+      justify-content:center;
+      align-items:center;
+    }
+    .modal-box{
+      background:#1f1f1f;
+      width:90%;
+      max-width:400px;
+      padding:15px;
+      border-radius:10px;
+      max-height:80vh;          /* ✅ height limit */
+      overflow-y:auto;          /* ✅ scroll enable */
+    }
+    .video-item{
+      background:#2a2a2a;
+      padding:10px;
+      margin-top:8px;
+      border-radius:6px;
+    }
+    .delete-btn{
+      background:#ff4444;
+      margin-top:6px;
+    }
+    .close-btn{
+      background:#555;
+      margin-top:10px;
+    }
   </style>
 </head>
 <body>
@@ -42,8 +76,22 @@
 
 <div class="msg" id="msg"></div>
 
+<hr style="margin:20px 0;">
+
+<button onclick="openDeleteWindow()">🗑️ Delete Video</button>
+
+<!-- Delete Modal -->
+<div class="modal" id="deleteModal">
+  <div class="modal-box">
+    <h3>🔍 Search & Delete Video</h3>
+    <input id="search" placeholder="Search video title" onkeyup="filterVideos()">
+    <div id="videoList"></div>
+    <button class="close-btn" onclick="closeDeleteWindow()">Close</button>
+  </div>
+</div>
+
 <script>
-  // 🔥 Firebase Config (YOUR PROJECT)
+  // 🔥 Firebase Config
   const firebaseConfig = {
     apiKey: "AIzaSyDJ3w0sw73diwA9t-yMeQYZrq9AtflNwLw",
     authDomain: "tamilpadam-880da.firebaseapp.com",
@@ -53,11 +101,14 @@
     appId: "1:231920667182:web:04ccd363eefeae32a1edbf"
   };
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
   const db = firebase.firestore();
 
-  // Upload Function
+  let allVideos = [];
+
+  // Upload
   function uploadVideo(){
     const title = document.getElementById('title').value;
     const url = document.getElementById('url').value;
@@ -67,15 +118,55 @@
       return;
     }
 
-    db.collection('videos').add({
-      title: title,
-      url: url,
-      time: Date.now()
-    }).then(() => {
+    db.collection('videos').add({ title, url, time: Date.now() })
+    .then(()=>{
       document.getElementById('msg').innerText = '✅ Video Uploaded Successfully';
-      document.getElementById('title').value = '';
-      document.getElementById('url').value = '';
+      document.getElementById('title').value='';
+      document.getElementById('url').value='';
     });
+  }
+
+  // Open Delete Window
+  function openDeleteWindow(){
+    document.getElementById('deleteModal').style.display='flex';
+  }
+
+  function closeDeleteWindow(){
+    document.getElementById('deleteModal').style.display='none';
+    document.getElementById('search').value='';
+    filterVideos();
+  }
+
+  // Load videos
+  db.collection('videos').orderBy('time','desc').onSnapshot(snapshot=>{
+    allVideos = [];
+    snapshot.forEach(doc=>{
+      allVideos.push({id:doc.id, ...doc.data()});
+    });
+    filterVideos();
+  });
+
+  // Search filter
+  function filterVideos(){
+    const key = document.getElementById('search').value.toLowerCase();
+    const list = document.getElementById('videoList');
+    list.innerHTML='';
+
+    allVideos
+      .filter(v => v.title.toLowerCase().includes(key))
+      .forEach(v=>{
+        list.innerHTML += `
+          <div class="video-item">
+            <b>${v.title}</b>
+            <button class="delete-btn" onclick="deleteVideo('${v.id}')">Delete</button>
+          </div>`;
+      });
+  }
+
+  function deleteVideo(id){
+    if(confirm('Are you sure?')){
+      db.collection('videos').doc(id).delete();
+    }
   }
 </script>
 
