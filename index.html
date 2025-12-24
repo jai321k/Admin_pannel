@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -19,14 +19,7 @@ button{background:#ff0000;color:white}
 #loginScreen{position:fixed;inset:0;background:#000;display:flex;justify-content:center;align-items:center}
 .login-box{background:#1f1f1f;padding:20px;width:90%;max-width:350px;border-radius:10px}
 
-.modal{
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.8);
-  justify-content:center;
-  align-items:center;
-}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);justify-content:center;align-items:center}
 .modal-box{
   background:#1f1f1f;
   width:90%;
@@ -35,7 +28,6 @@ button{background:#ff0000;color:white}
   border-radius:10px;
   max-height:85vh;
   overflow:auto;
-  position:relative;
 }
 
 .video-item{background:#2a2a2a;padding:10px;margin-top:8px;border-radius:6px}
@@ -43,7 +35,6 @@ button{background:#ff0000;color:white}
 .edit-btn{background:#4caf50}
 .logout{background:#555;margin-top:15px}
 
-/* 🔹 FIXED CLOSE BUTTON */
 .close-btn{
   position:fixed;
   top:15px;
@@ -54,13 +45,13 @@ button{background:#ff0000;color:white}
   z-index:9999;
 }
 
-/* 🔹 EDIT BOX STYLE */
 #editBox{
   background:#2b2b2b;
   padding:10px;
   border-radius:8px;
   margin-bottom:15px;
 }
+.small{font-size:13px;color:#bbb}
 </style>
 </head>
 <body>
@@ -82,6 +73,8 @@ button{background:#ff0000;color:white}
 <h2>📤 Upload Video</h2>
 <input id="title" placeholder="Video Title">
 <input id="url" placeholder="Video URL">
+<input id="category" placeholder="Category (Movie / Trailer / Comedy)">
+<input id="tags" placeholder="Tags (comma separated)">
 <button onclick="uploadVideo()">Upload</button>
 <div id="msg" class="msg"></div>
 
@@ -96,18 +89,19 @@ button{background:#ff0000;color:white}
     <h3>🔍 Search Video</h3>
     <input id="search" placeholder="Search title" onkeyup="filter()">
 
-    <!-- 🔹 EDIT BOX NOW AT TOP -->
+    <!-- EDIT BOX -->
     <div id="editBox" style="display:none">
       <h3>✏️ Edit Video</h3>
       <input id="editTitle" placeholder="Edit Title">
       <input id="editUrl" placeholder="Edit URL">
+      <input id="editCategory" placeholder="Edit Category">
+      <input id="editTags" placeholder="Edit Tags (comma separated)">
       <button onclick="updateVideo()">Update</button>
     </div>
 
     <div id="videoList"></div>
   </div>
 
-  <!-- 🔹 FIXED CLOSE -->
   <button class="close-btn" onclick="closeManage()">Close ✖</button>
 </div>
 
@@ -123,6 +117,7 @@ firebase.initializeApp(firebaseConfig);
 
 const db = firebase.firestore();
 const auth = firebase.auth();
+
 let videos = [];
 let editId = null;
 
@@ -139,11 +134,18 @@ function logout(){auth.signOut();}
 
 /* UPLOAD */
 function uploadVideo(){
-  if(!title.value||!url.value) return alert("Fill all fields");
-  db.collection("videos").add({title:title.value,url:url.value,time:Date.now()})
-  .then(()=>{
+  if(!title.value||!url.value||!category.value) 
+    return alert("Title, URL, Category required");
+
+  db.collection("videos").add({
+    title:title.value,
+    url:url.value,
+    category:category.value,
+    tags:tags.value.split(',').map(t=>t.trim()),
+    time:Date.now()
+  }).then(()=>{
     msg.innerText="✅ Uploaded";
-    title.value='';url.value='';
+    title.value=url.value=category.value=tags.value='';
   });
 }
 
@@ -164,11 +166,14 @@ db.collection("videos").orderBy("time","desc").onSnapshot(snap=>{
 /* SEARCH */
 function filter(){
   videoList.innerHTML='';
-  videos.filter(v=>v.title.toLowerCase().includes(search.value.toLowerCase()))
+  videos
+  .filter(v=>v.title.toLowerCase().includes(search.value.toLowerCase()))
   .forEach(v=>{
     videoList.innerHTML+=`
     <div class="video-item">
       <b>${v.title}</b>
+      <div class="small">📂 ${v.category || '-'}</div>
+      <div class="small">🏷️ ${(v.tags||[]).join(', ')}</div>
       <button class="edit-btn" onclick="editVideo('${v.id}')">Edit</button>
       <button class="delete-btn" onclick="del('${v.id}')">Delete</button>
     </div>`;
@@ -187,15 +192,19 @@ function editVideo(id){
   editId = id;
   editTitle.value = v.title;
   editUrl.value = v.url;
+  editCategory.value = v.category || '';
+  editTags.value = (v.tags||[]).join(', ');
   editBox.style.display='block';
-  manageModal.querySelector('.modal-box').scrollTop = 0; // 🔥 top scroll
+  manageModal.querySelector('.modal-box').scrollTop = 0;
 }
 
 /* UPDATE */
 function updateVideo(){
   db.collection("videos").doc(editId).update({
     title:editTitle.value,
-    url:editUrl.value
+    url:editUrl.value,
+    category:editCategory.value,
+    tags:editTags.value.split(',').map(t=>t.trim())
   }).then(()=>alert("✅ Updated Successfully"));
 }
 </script>
