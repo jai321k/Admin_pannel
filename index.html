@@ -5,122 +5,157 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Panel</title>
 
-<!-- Firebase CDN -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <style>
 body{background:#111;color:white;font-family:Arial;padding:20px}
-input,button{width:100%;padding:12px;margin:10px 0;border-radius:6px;border:none;font-size:16px}
-button{background:#ff0000;color:white;cursor:pointer}
+input,button{width:100%;padding:12px;margin:8px 0;border-radius:6px;border:none;font-size:16px}
+button{background:#ff0000;color:white}
 .msg{color:lightgreen}
 
-#loginScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;justify-content:center;align-items:center;z-index:1000}
-.login-box{background:#1f1f1f;padding:20px;width:90%;max-width:350px;border-radius:10px;text-align:center}
+#loginScreen{position:fixed;inset:0;background:#000;display:flex;justify-content:center;align-items:center}
+.login-box{background:#1f1f1f;padding:20px;width:90%;max-width:350px;border-radius:10px}
 
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);justify-content:center;align-items:center}
-.modal-box{background:#1f1f1f;width:90%;max-width:400px;padding:15px;border-radius:10px;max-height:80vh;overflow-y:auto}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);justify-content:center;align-items:center}
+.modal-box{background:#1f1f1f;width:90%;max-width:420px;padding:15px;border-radius:10px;max-height:85vh;overflow:auto}
+
 .video-item{background:#2a2a2a;padding:10px;margin-top:8px;border-radius:6px}
-.delete-btn{background:#ff4444;margin-top:6px}
-.close-btn{background:#555;margin-top:10px}
-.logout{background:#555;margin-top:20px}
+.delete-btn{background:#ff4444}
+.edit-btn{background:#4caf50}
+.close-btn{background:#555}
+.logout{background:#555;margin-top:15px}
 </style>
 </head>
 <body>
 
-<!-- 🔐 LOGIN -->
+<!-- LOGIN -->
 <div id="loginScreen">
   <div class="login-box">
     <h3>🔐 Admin Login</h3>
-    <input id="email" placeholder="Admin Email">
+    <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
     <button onclick="login()">Login</button>
     <div id="loginMsg" class="msg"></div>
   </div>
 </div>
 
-<!-- 🔓 ADMIN CONTENT -->
-<div id="adminContent" style="display:none;">
+<!-- ADMIN -->
+<div id="adminContent" style="display:none">
 
-<h2>📤 Upload New Video</h2>
+<h2>📤 Upload Video</h2>
 <input id="title" placeholder="Video Title">
-<input id="url" placeholder="Cloudinary Video URL">
+<input id="url" placeholder="Video URL">
 <button onclick="uploadVideo()">Upload</button>
-<div class="msg" id="msg"></div>
+<div id="msg" class="msg"></div>
 
 <hr>
-<button onclick="openDelete()">🗑️ Delete Video</button>
+<button onclick="openManage()">🛠️ Manage Videos</button>
 <button class="logout" onclick="logout()">Logout</button>
 
-<div class="modal" id="deleteModal">
+<!-- MANAGE MODAL -->
+<div class="modal" id="manageModal">
   <div class="modal-box">
-    <h3>🔍 Search & Delete</h3>
+    <h3>🔍 Search Video</h3>
     <input id="search" placeholder="Search title" onkeyup="filter()">
     <div id="videoList"></div>
-    <button class="close-btn" onclick="closeDelete()">Close</button>
+
+    <!-- EDIT FORM -->
+    <div id="editBox" style="display:none;margin-top:15px">
+      <h3>✏️ Edit Video</h3>
+      <input id="editTitle" placeholder="Edit Title">
+      <input id="editUrl" placeholder="Edit URL">
+      <button onclick="updateVideo()">Update</button>
+    </div>
+
+    <button class="close-btn" onclick="closeManage()">Close</button>
   </div>
 </div>
+
 </div>
 
 <script>
-// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDJ3w0sw73diwA9t-yMeQYZrq9AtflNwLw",
   authDomain: "tamilpadam-880da.firebaseapp.com",
   projectId: "tamilpadam-880da",
-  storageBucket: "tamilpadam-880da.firebasestorage.app",
-  messagingSenderId: "231920667182",
-  appId: "1:231920667182:web:04ccd363eefeae32a1edbf"
 };
 
-if(!firebase.apps.length){firebase.initializeApp(firebaseConfig);}
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
+
 let videos = [];
+let editId = null;
 
-// AUTH STATE
-auth.onAuthStateChanged(user=>{
-  if(user){
-    loginScreen.style.display='none';
-    adminContent.style.display='block';
-  } else {
-    loginScreen.style.display='flex';
-    adminContent.style.display='none';
-  }
+/* AUTH */
+auth.onAuthStateChanged(u=>{
+  loginScreen.style.display = u ? 'none':'flex';
+  adminContent.style.display = u ? 'block':'none';
 });
+function login(){auth.signInWithEmailAndPassword(email.value,password.value)
+.catch(e=>loginMsg.innerText=e.message)}
+function logout(){auth.signOut()}
 
-function login(){
-  auth.signInWithEmailAndPassword(email.value, password.value)
-    .catch(e=>loginMsg.innerText=e.message);
-}
-
-function logout(){auth.signOut();}
-
-// Upload
+/* UPLOAD */
 function uploadVideo(){
-  if(title.value==''||url.value==''){alert('Fill all fields');return;}
-  db.collection('videos').add({title:title.value,url:url.value,time:Date.now()})
-  .then(()=>{msg.innerText='✅ Uploaded';title.value='';url.value='';});
+  if(!title.value||!url.value) return alert("Fill all fields");
+  db.collection("videos").add({title:title.value,url:url.value,time:Date.now()})
+  .then(()=>{msg.innerText="✅ Uploaded";title.value='';url.value='';})
 }
 
-// Delete Window
-function openDelete(){deleteModal.style.display='flex';}
-function closeDelete(){deleteModal.style.display='none';search.value='';filter();}
+/* MANAGE */
+function openManage(){manageModal.style.display='flex'}
+function closeManage(){
+  manageModal.style.display='none';
+  editBox.style.display='none';
+}
 
-// Load videos
-db.collection('videos').orderBy('time','desc').onSnapshot(snap=>{
-  videos=[];snap.forEach(d=>videos.push({id:d.id,...d.data()}));filter();
+/* LOAD */
+db.collection("videos").orderBy("time","desc").onSnapshot(snap=>{
+  videos=[];
+  snap.forEach(d=>videos.push({id:d.id,...d.data()}));
+  filter();
 });
 
+/* SEARCH */
 function filter(){
-  const k=search.value.toLowerCase();videoList.innerHTML='';
-  videos.filter(v=>v.title.toLowerCase().includes(k)).forEach(v=>{
-    videoList.innerHTML+=`<div class="video-item"><b>${v.title}</b><button class="delete-btn" onclick="del('${v.id}')">Delete</button></div>`;
+  videoList.innerHTML='';
+  videos.filter(v=>v.title.toLowerCase().includes(search.value.toLowerCase()))
+  .forEach(v=>{
+    videoList.innerHTML+=`
+    <div class="video-item">
+      <b>${v.title}</b>
+      <button class="edit-btn" onclick="editVideo('${v.id}')">Edit</button>
+      <button class="delete-btn" onclick="del('${v.id}')">Delete</button>
+    </div>`;
   });
 }
 
-function del(id){if(confirm('Delete?')) db.collection('videos').doc(id).delete();}
+/* DELETE */
+function del(id){
+  if(confirm("Delete this video?"))
+    db.collection("videos").doc(id).delete();
+}
+
+/* EDIT */
+function editVideo(id){
+  const v = videos.find(x=>x.id===id);
+  editId = id;
+  editTitle.value = v.title;
+  editUrl.value = v.url;
+  editBox.style.display='block';
+}
+
+/* UPDATE */
+function updateVideo(){
+  db.collection("videos").doc(editId).update({
+    title: editTitle.value,
+    url: editUrl.value
+  }).then(()=>alert("✅ Updated Successfully"));
+}
 </script>
 
 </body>
