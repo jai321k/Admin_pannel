@@ -19,14 +19,48 @@ button{background:#ff0000;color:white}
 #loginScreen{position:fixed;inset:0;background:#000;display:flex;justify-content:center;align-items:center}
 .login-box{background:#1f1f1f;padding:20px;width:90%;max-width:350px;border-radius:10px}
 
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);justify-content:center;align-items:center}
-.modal-box{background:#1f1f1f;width:90%;max-width:420px;padding:15px;border-radius:10px;max-height:85vh;overflow:auto}
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.8);
+  justify-content:center;
+  align-items:center;
+}
+.modal-box{
+  background:#1f1f1f;
+  width:90%;
+  max-width:420px;
+  padding:15px;
+  border-radius:10px;
+  max-height:85vh;
+  overflow:auto;
+  position:relative;
+}
 
 .video-item{background:#2a2a2a;padding:10px;margin-top:8px;border-radius:6px}
 .delete-btn{background:#ff4444}
 .edit-btn{background:#4caf50}
-.close-btn{background:#555}
 .logout{background:#555;margin-top:15px}
+
+/* 🔹 FIXED CLOSE BUTTON */
+.close-btn{
+  position:fixed;
+  top:15px;
+  right:15px;
+  width:auto;
+  padding:10px 15px;
+  background:#555;
+  z-index:9999;
+}
+
+/* 🔹 EDIT BOX STYLE */
+#editBox{
+  background:#2b2b2b;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:15px;
+}
 </style>
 </head>
 <body>
@@ -58,20 +92,23 @@ button{background:#ff0000;color:white}
 <!-- MANAGE MODAL -->
 <div class="modal" id="manageModal">
   <div class="modal-box">
+
     <h3>🔍 Search Video</h3>
     <input id="search" placeholder="Search title" onkeyup="filter()">
-    <div id="videoList"></div>
 
-    <!-- EDIT FORM -->
-    <div id="editBox" style="display:none;margin-top:15px">
+    <!-- 🔹 EDIT BOX NOW AT TOP -->
+    <div id="editBox" style="display:none">
       <h3>✏️ Edit Video</h3>
       <input id="editTitle" placeholder="Edit Title">
       <input id="editUrl" placeholder="Edit URL">
       <button onclick="updateVideo()">Update</button>
     </div>
 
-    <button class="close-btn" onclick="closeManage()">Close</button>
+    <div id="videoList"></div>
   </div>
+
+  <!-- 🔹 FIXED CLOSE -->
+  <button class="close-btn" onclick="closeManage()">Close ✖</button>
 </div>
 
 </div>
@@ -82,32 +119,36 @@ const firebaseConfig = {
   authDomain: "tamilpadam-880da.firebaseapp.com",
   projectId: "tamilpadam-880da",
 };
-
 firebase.initializeApp(firebaseConfig);
+
 const db = firebase.firestore();
 const auth = firebase.auth();
-
 let videos = [];
 let editId = null;
 
 /* AUTH */
 auth.onAuthStateChanged(u=>{
-  loginScreen.style.display = u ? 'none':'flex';
-  adminContent.style.display = u ? 'block':'none';
+  loginScreen.style.display = u?'none':'flex';
+  adminContent.style.display = u?'block':'none';
 });
-function login(){auth.signInWithEmailAndPassword(email.value,password.value)
-.catch(e=>loginMsg.innerText=e.message)}
-function logout(){auth.signOut()}
+function login(){
+  auth.signInWithEmailAndPassword(email.value,password.value)
+  .catch(e=>loginMsg.innerText=e.message);
+}
+function logout(){auth.signOut();}
 
 /* UPLOAD */
 function uploadVideo(){
   if(!title.value||!url.value) return alert("Fill all fields");
   db.collection("videos").add({title:title.value,url:url.value,time:Date.now()})
-  .then(()=>{msg.innerText="✅ Uploaded";title.value='';url.value='';})
+  .then(()=>{
+    msg.innerText="✅ Uploaded";
+    title.value='';url.value='';
+  });
 }
 
-/* MANAGE */
-function openManage(){manageModal.style.display='flex'}
+/* MODAL */
+function openManage(){manageModal.style.display='flex';}
 function closeManage(){
   manageModal.style.display='none';
   editBox.style.display='none';
@@ -147,13 +188,14 @@ function editVideo(id){
   editTitle.value = v.title;
   editUrl.value = v.url;
   editBox.style.display='block';
+  manageModal.querySelector('.modal-box').scrollTop = 0; // 🔥 top scroll
 }
 
 /* UPDATE */
 function updateVideo(){
   db.collection("videos").doc(editId).update({
-    title: editTitle.value,
-    url: editUrl.value
+    title:editTitle.value,
+    url:editUrl.value
   }).then(()=>alert("✅ Updated Successfully"));
 }
 </script>
